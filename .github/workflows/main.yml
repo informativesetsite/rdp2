@@ -4,58 +4,22 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
+
     runs-on: windows-latest
 
     steps:
-    - name: Download ngrok
-      run: |
-        Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-        if (!(Test-Path "ngrok.zip")) { throw "Download failed" }
-
-    - name: Check ZIP File
-      run: |
-        Write-Host "Checking contents of the ZIP file:"
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [System.IO.Compression.ZipFile]::OpenRead("ngrok.zip").Entries | ForEach-Object { Write-Host $_.FullName }
-
-    - name: Extract ngrok
-      run: |
-        Expand-Archive ngrok.zip -DestinationPath .
-        if (!(Test-Path ".\ngrok.exe")) { throw "Extraction failed" }
-
-    - name: Authenticate ngrok
-      run: |
-        .\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
-        if ($LASTEXITCODE -ne 0) { throw "Ngrok authentication failed" }
+    - name: Download
+      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+    - name: Extract
+      run: Expand-Archive ngrok.zip
+    - name: Auth
+      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-
-    - name: Enable Terminal Services
-      run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        if ($LASTEXITCODE -ne 0) { throw "Enable Terminal Services failed" }
-
-    - name: Enable Remote Desktop Firewall
-      run: |
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        if ($LASTEXITCODE -ne 0) { throw "Enable firewall rule failed" }
-
-    - name: Set User Authentication for RDP
-      run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-        if ($LASTEXITCODE -ne 0) { throw "Set User Authentication failed" }
-
-    - name: Set Local User Password
-      run: |
-        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
-        if ($LASTEXITCODE -ne 0) { throw "Set local user password failed" }
-
-    - name: Verify ngrok Directory
-      run: |
-        if (!(Test-Path ".\ngrok.exe")) { throw "ngrok.exe not found" }
-        dir .
-
-    - name: Create ngrok Tunnel
-      run: |
-        .\ngrok.exe tcp 3389
-        if ($LASTEXITCODE -ne 0) { throw "Ngrok tunnel creation failed" }
+    - name: Enable TS
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - name: Create Tunnel
+      run: .\ngrok\ngrok.exe tcp 3389
